@@ -32,7 +32,7 @@ void producer(boost::mutex *start, size_t id, size_t count) {
     start->lock();
     uint64_t producer_begin_us = get_time_usec();
     for (size_t i = 0; i < count; ++i) {
-        TZ_ASYNC_LOG(logger, ALOG_LVL_DEBUG, "id: %zu, i: %zu", id, i);
+        TZ_ASYNC_LOG(logger, ALOG_LVL_DEBUG, "asynclog message (%zu, %zu) : This is some text for your pleasure", id, i);
     }
     uint64_t producer_done_us = get_time_usec();
     uint64_t duration = producer_done_us - producer_begin_us;
@@ -139,6 +139,7 @@ int main(int argc, char **argv) {
     // wait for consumer
     logger.stop();
     uint64_t consumer_done_us = get_time_usec();
+    uint64_t consumer_duration = consumer_done_us - start_us;
 
     TZ_ASYNC_LOG(debugger, ALOG_LVL_INFO,
         "[producers:%zu][works:%zu][prod_us:%lu][cons_us:%lu]",
@@ -146,7 +147,8 @@ int main(int argc, char **argv) {
     uint64_t total = logger.stats.total.load(turf::Relaxed);
     uint64_t drop = logger.stats.drop.load(turf::Relaxed);
     double drop_rate = (double)drop / total;
-    TZ_ASYNC_LOG(debugger, ALOG_LVL_INFO, "[total:%zu][drop:%zu][drop_rate:%g]",
-        total, drop, drop_rate);
+    double consumer_qps = 1000000.0 * (total - drop) / consumer_duration;
+    TZ_ASYNC_LOG(debugger, ALOG_LVL_INFO, "[total:%zu][drop:%zu][drop_rate:%g][cons_qps:%.2f]",
+        total, drop, drop_rate, consumer_qps);
     return 0;
 }
