@@ -273,7 +273,8 @@ namespace tz { namespace asynclog {
                 // check for flush before msg is deleted
                 if (_timeval_to_msec(msg->time) >= last_flush + this->flush_interval_ms) {
                     last_flush = _timeval_to_msec(msg->time);
-                    sink->sink(msg);    // msg free'ed
+                    sink->sink(msg);    // msg moved to sink
+                    sink->flush();
                 } else {
                     sink->sink(msg);
                 }
