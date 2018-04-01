@@ -18,6 +18,10 @@ namespace tz { namespace asynclog {
             ::memset(&this->file_stat, 0, sizeof(this->file_stat));
         }
 
+        ~FileSink() {
+            this->close();
+        }
+
         virtual bool sink(LogMsg *msg) {
             bool ok = true;
             if (this->fp == NULL) {
