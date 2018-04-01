@@ -33,7 +33,8 @@ namespace tz { namespace asynclog {
             }
 
             {
-                std::string buf;
+                std::string &buf = this->fmtbuf;
+                buf.clear();
                 this->format(buf, msg);
                 buf.push_back('\n');
 
@@ -115,6 +116,7 @@ namespace tz { namespace asynclog {
         std::string path;
         FILE *fp;
         struct stat file_stat;
+        std::string fmtbuf;
     };
 
 }}  // ::tz::asynclog
