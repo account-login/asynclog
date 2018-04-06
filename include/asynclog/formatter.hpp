@@ -258,7 +258,7 @@ namespace tz { namespace asynclog {
 
         virtual void format(std::string &buf, LogMsg *msg) {
             // estimate buffer size
-            buf.reserve(this->specs_size + msg->msg.size() + 1);
+            buf.reserve(this->specs_size + msg->msg_size + 1);
             for (size_t i = 0; i < this->specs.size(); ++i) {
                 if (this->specs[i].func == NULL) {
                     buf.append(this->specs[i].data);
@@ -420,8 +420,7 @@ namespace tz { namespace asynclog {
     }
 
     inline void _spec_msg(DefaultFormtter &, std::string &buf, LogMsg *msg) {
-        buf.append(msg->msg);
-        // buf.append(msg->msg_data, msg->msg_size);
+        buf.append(msg->msg_data, msg->msg_size);
     }
 
     inline void _spec_process(DefaultFormtter &, std::string &buf, LogMsg *) {

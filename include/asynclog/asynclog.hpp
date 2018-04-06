@@ -58,10 +58,8 @@ namespace tz { namespace asynclog {
         struct timeval  time;
         pid_t           tid;
         // TODO: source, lineno and etc
-        // TODO: embbed msg into struct
-        std::string     msg;
-        // size_t          msg_size;
-        // char            msg_data[TZ_ASYNCLOG_MAX_LEN];
+        size_t          msg_size;
+        char            msg_data[0];
     };
 
     struct AsyncLogger;
@@ -103,7 +101,7 @@ namespace tz { namespace asynclog {
         bool sink(LogMsg *msg);
         void flush();
         void recycle(LogMsg *msg);
-        LogMsg *create();
+        LogMsg *create(size_t msg_size);
         void set_level(LevelType level);
         bool should_log(LevelType level);
         void start();
@@ -154,7 +152,7 @@ namespace tz { namespace asynclog {
         if (this->stopped) {
             return;
         }
-        LogMsg *msg = new LogMsg;
+        LogMsg *msg = this->create(0);
         msg->type = MSGTYPE_STOP;
         while (!this->q.try_push_back(msg)) {}
         this->sink_thread->join();
@@ -171,18 +169,18 @@ namespace tz { namespace asynclog {
     }
 
     inline void AsyncLogger::flush() {
-        LogMsg *msg = new LogMsg;
+        LogMsg *msg = this->create(0);
         msg->type = MSGTYPE_FLUSH;
         while (!this->q.try_push_back(msg)) {}
     }
 
     inline void AsyncLogger::recycle(LogMsg *msg) {
         assert(msg != NULL);
-        delete msg;
+        ::free(msg);
     }
 
-    inline LogMsg *AsyncLogger::create() {
-        return new LogMsg;
+    inline LogMsg *AsyncLogger::create(size_t msg_size) {
+        return (LogMsg *)::malloc(sizeof(LogMsg) + msg_size);
     }
 
     inline void AsyncLogger::set_level(LevelType level) {
@@ -260,12 +258,12 @@ namespace tz { namespace asynclog {
             attempts = 0;
             switch (msg->type) {
             case MSGTYPE_STOP:
-                delete msg;
+                ::free(msg);
                 sink->flush();
                 sink->close();
                 return;     // thread exit
             case MSGTYPE_FLUSH:
-                delete msg;
+                ::free(msg);
                 last_flush = _get_time_msec();
                 sink->flush();
                 break;
@@ -296,32 +294,39 @@ namespace tz { namespace asynclog {
     }
 
     inline void AsyncLogger::log(LevelType level, const char *fmt, ...) {
-        LogMsg &msg = *this->create();
-        msg.type = MSGTYPE_LOG;
-        msg.level = level;
-        ::gettimeofday(&msg.time, NULL);
-        msg.tid = this->get_tid();
+        LogMsg *msg = NULL;
 
         va_list ap;
         va_start(ap, fmt);
         char buf[TZ_ASYNCLOG_MAX_LEN];
         int n = TZ_ASYNCLOG_VSNPRINTF(buf, sizeof(buf), fmt, ap);
-        // int n = TZ_ASYNCLOG_VSNPRINTF(msg.msg_data, sizeof(msg.msg_data), fmt, ap);
         va_end(ap);
         if (n > 0 && n < (int)sizeof(buf)) {
-            msg.msg.append(buf, (size_t)n);
-            // msg.msg_size = (size_t)n;
+            msg = this->create((size_t)n);
+            msg->type = MSGTYPE_LOG;
+            msg->level = level;
+            ::gettimeofday(&msg->time, NULL);
+            msg->tid = this->get_tid();
+
+            ::memcpy(msg->msg_data, buf, (size_t)n);
+            msg->msg_size = (size_t)n;
         } else {
             // TODO: stats
-            msg.msg.append("[AsyncLogger] bad vsnprintf call: ");
-            msg.msg.append(fmt);
-            // char *end = strncpy(msg.msg_data, "[AsyncLogger] bad vsnprintf call: ", sizeof(msg.msg_data));
-            // strncat(end, fmt, (char *)msg.msg_data + sizeof(msg.msg_data) - end);
-            // msg.msg_size = strlen(msg.msg_data);
+            // TODO: clean up this
+            const char *errmsg = "[AsyncLogger] bad vsnprintf call: ";
+
+            msg = this->create(strlen(errmsg));
+            msg->type = MSGTYPE_LOG;
+            msg->level = level;
+            ::gettimeofday(&msg->time, NULL);
+            msg->tid = this->get_tid();
+
+            ::memcpy(msg->msg_data, errmsg, strlen(errmsg));
+            msg->msg_size = strlen(errmsg);
         }
 
-        if (!this->sink(&msg)) {
-            this->recycle(&msg);
+        if (!this->sink(msg)) {
+            this->recycle(msg);
             this->stats.drop.fetchAdd(1, turf::Relaxed);
         }
         this->stats.total.fetchAdd(1, turf::Relaxed);
