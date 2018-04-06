@@ -11,19 +11,31 @@ namespace tz { namespace asynclog {
     {
     public:
         explicit mpmc_bounded_queue(size_t buffer_size)
-            : buffer_(new cell_t [buffer_size])
-            , buffer_mask_(buffer_size - 1)
+            : buffer_(NULL)
+            , buffer_mask_(0)
         {
+            this->init(buffer_size);
+        }
+
+        mpmc_bounded_queue() : buffer_(NULL), buffer_mask_(0) {}
+
+        void init(size_t buffer_size) {
             assert((buffer_size >= 2) && ((buffer_size & (buffer_size - 1)) == 0));
-            for (size_t i = 0; i != buffer_size; i += 1)
+            assert(buffer_ == NULL);
+            assert(buffer_mask_ == 0);
+
+            buffer_ = new cell_t[buffer_size];
+            buffer_mask_ = buffer_size - 1;
+            for (size_t i = 0; i < buffer_size; ++i) {
                 buffer_[i].sequence_.store(i, turf::Relaxed);
+            }
             enqueue_pos_.store(0, turf::Relaxed);
             dequeue_pos_.store(0, turf::Relaxed);
         }
 
         ~mpmc_bounded_queue()
         {
-            delete [] buffer_;
+            delete []buffer_;
         }
 
         bool enqueue(T const& data)
@@ -88,8 +100,8 @@ namespace tz { namespace asynclog {
         typedef char                cacheline_pad_t[64];
 
         cacheline_pad_t             pad0_;
-        cell_t* const               buffer_;
-        size_t const                buffer_mask_;
+        cell_t*                     buffer_;
+        size_t                      buffer_mask_;
         cacheline_pad_t             pad1_;
         turf::Atomic<size_t>        enqueue_pos_;
         cacheline_pad_t             pad2_;
@@ -103,6 +115,12 @@ namespace tz { namespace asynclog {
     template <class T>
     struct MPMCBoundedQueue {
         explicit MPMCBoundedQueue(size_t size) : q(size) {}
+
+        MPMCBoundedQueue() : q() {}
+
+        void init(size_t size) {
+            this->q.init(size);
+        }
 
         bool try_push_back(const T &obj) {
             return this->q.enqueue(obj);

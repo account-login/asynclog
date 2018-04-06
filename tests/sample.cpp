@@ -23,7 +23,7 @@ void thread() {
 }
 
 void thread_file() {
-    for (size_t i = 0; i < 10000; ++i) {
+    for (size_t i = 0; i < 1000; ++i) {
         TZ_ASYNC_LOG(file_logger, ALOG_LVL_INFO, "test log to file from thread %d", 123);
         timespec ts = {0, 5* 1000 * 1000};  // 5ms
         ::nanosleep(&ts, NULL);

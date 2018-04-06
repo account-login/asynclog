@@ -153,5 +153,13 @@ int main(int argc, char **argv) {
     double consumer_qps = 1000000.0 * (total - drop) / consumer_duration;
     TZ_ASYNC_LOG(debugger, ALOG_LVL_INFO, "[total:%zu][drop:%zu][drop_rate:%g][cons_qps:%.2f]",
         total, drop, drop_rate, consumer_qps);
+
+    uint32_t get_hit = logger.msgpool.stats.get_hit.load(turf::Relaxed);
+    uint32_t get_miss = logger.msgpool.stats.get_miss.load(turf::Relaxed);
+    uint32_t put_hit = logger.msgpool.stats.put_hit.load(turf::Relaxed);
+    uint32_t put_miss = logger.msgpool.stats.put_miss.load(turf::Relaxed);
+    TZ_ASYNC_LOG(debugger, ALOG_LVL_INFO, "[get_hit:%u][get_miss:%u][put_hit:%u][put_miss:%u]",
+        get_hit, get_miss, put_hit, put_miss);
+
     return 0;
 }
