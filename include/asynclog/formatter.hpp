@@ -375,10 +375,44 @@ namespace tz { namespace asynclog {
         return sum;
     }
 
+    struct _Digit100 {
+        uint16_t words[100];
+
+        _Digit100() {
+            const char _digit_pairs[201] = {
+                "00010203040506070809"
+                "10111213141516171819"
+                "20212223242526272829"
+                "30313233343536373839"
+                "40414243444546474849"
+                "50515253545556575859"
+                "60616263646566676869"
+                "70717273747576777879"
+                "80818283848586878889"
+                "90919293949596979899"
+            };
+            ::memcpy(&this->words, _digit_pairs, sizeof(this->words));
+        }
+    };
+
+    static const _Digit100 _digit100;
+
     inline void _spec_usec(DefaultFormtter &, std::string &buf, LogMsg *msg) {
-        char fmtbuf[32];
-        TZ_ASYNCLOG_SNPRINTF(fmtbuf, sizeof(fmtbuf), "%06ld", msg->time.tv_usec);
-        buf.append(fmtbuf);
+        uint32_t num = (uint32_t)msg->time.tv_usec;
+        num %= 1000000;     // impossible
+
+        union {
+            char buf[6];
+            uint16_t words[3];
+        } fmtbuf;
+
+        fmtbuf.words[2] = _digit100.words[num % 100];
+        num /= 100;
+        fmtbuf.words[1] = _digit100.words[num % 100];
+        num /= 100;
+        fmtbuf.words[0] = _digit100.words[num];
+
+        buf.append(fmtbuf.buf, 6);
     }
 
     inline void _spec_level(DefaultFormtter &fmt, std::string &buf, LogMsg *msg) {

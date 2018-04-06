@@ -105,7 +105,10 @@ int main(int argc, char **argv) {
     if (args.sink.empty()) {
         logger.set_sink(ILogSink::Ptr(new NullSink));
     } else {
-        logger.set_sink(ILogSink::Ptr(new FileSink(args.sink)));
+        FileSink *file_sink = new FileSink(args.sink);
+        file_sink->set_formatter(boost::shared_ptr<IFormatter>(
+            new DefaultFormtter("%(yyyy-mm-dd) %(hh:mm:ss).%(usec) %(level) %(process)[%(tid)] %(msg)")));
+        logger.set_sink(ILogSink::Ptr(file_sink));
     }
     logger.start();
 
