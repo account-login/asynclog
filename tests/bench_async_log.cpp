@@ -46,6 +46,7 @@ struct Args {
     size_t producer;
     size_t works;
     string sink;
+    size_t pool;
 };
 
 
@@ -53,18 +54,20 @@ Args parse_arge(int argc, char **argv) {
     Args args;
     args.producer = 1;
     args.works = 10 * 1000 * 1000;
+    args.pool = 0;
 
     struct option long_options[] = {
         {"producer",    required_argument, 0, 'p'},
         {"work",        required_argument, 0, 'n'},
         {"sink",        required_argument, 0, 's'},
+        {"pool",        optional_argument, 0, 'm'},
         {0, 0, 0, 0}
     };
 
     while (true) {
         /* getopt_long stores the option index here. */
         int option_index = 0;
-        int c = getopt_long (argc, argv, "p:n:s:",
+        int c = getopt_long (argc, argv, "p:n:s:m:",
             long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -82,6 +85,10 @@ Args parse_arge(int argc, char **argv) {
             break;
         case 's':
             args.sink = optarg;
+            break;
+        case 'm':
+            args.pool = (size_t)atol(optarg);
+            break;
         case '?':
             /* getopt_long already printed an error message. */
             break;
@@ -99,8 +106,8 @@ int main(int argc, char **argv) {
     debugger.start();
     
     Args args = parse_arge(argc, argv);
-    TZ_ASYNC_LOG(debugger, ALOG_LVL_INFO, "[producer:%zu][works:%zu][sink:%s]",
-        args.producer, args.works, args.sink.c_str());
+    TZ_ASYNC_LOG(debugger, ALOG_LVL_INFO, "[producer:%zu][works:%zu][sink:%s][mempool:%zu]",
+        args.producer, args.works, args.sink.c_str(), args.pool);
 
     if (args.sink.empty()) {
         logger.set_sink(ILogSink::Ptr(new NullSink));
@@ -108,7 +115,9 @@ int main(int argc, char **argv) {
         FileSink *file_sink = new FileSink(args.sink);
         file_sink->set_formatter(boost::shared_ptr<IFormatter>(
             new DefaultFormtter("%(yyyy-mm-dd) %(hh:mm:ss).%(usec) %(level) %(process)[%(tid)] %(msg)")));
-        logger.set_sink(ILogSink::Ptr(file_sink));
+        logger
+            .set_sink(ILogSink::Ptr(file_sink))
+            .set_pool_size(args.pool);
     }
     logger.start();
 
