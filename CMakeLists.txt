@@ -1,10 +1,14 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.6)
 project(asynclog)
 
 set(CMAKE_CXX_STANDARD 98)
 
+# vars
+set(ASYNCLOG_CXXFLAGS "-O2 -fno-omit-frame-pointer" CACHE STRING "additional cxxflags")
+set(ASYNCLOG_LDFLAGS "-static-libgcc -static-libstdc++ -static" CACHE SRING "additional ldflags")
+
 add_definitions(-Wall -Wextra -g)
-add_definitions(-O2)
+add_definitions(${ASYNCLOG_CXXFLAGS})
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
@@ -13,7 +17,7 @@ find_package(Boost COMPONENTS thread)
 
 set(LIBS
     rt ${Boost_LIBRARIES}
-    -static-libgcc -static-libstdc++ -static
+    ${ASYNCLOG_LDFLAGS}
 )
 
 add_executable(sample

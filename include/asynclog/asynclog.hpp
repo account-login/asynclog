@@ -1,13 +1,16 @@
 #pragma once
 
 #include <stdint.h>
+#include <string.h>
 #include <time.h>       // for nanosleep
 #include <sched.h>      // for sched_yield
 #include <stdio.h>      // for snprintf, stderr
 #include <stdarg.h>
 #include <sys/types.h>  // for pid_t and etc
 #include <sys/time.h>   // for gettimeofday
-#include <sys/syscall.h>
+#if  __linux__
+#   include <sys/syscall.h>
+#endif
 #include <cassert>
 #include <string>
 
