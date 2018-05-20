@@ -7,6 +7,7 @@
 #include <string>
 
 #include "../asynclog.hpp"
+#include "../sinks/fmt_sink.hpp"
 
 
 namespace tz { namespace asynclog {

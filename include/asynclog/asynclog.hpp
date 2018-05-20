@@ -38,12 +38,12 @@ namespace tz { namespace asynclog {
 #define TZ_ASYNCLOG_MAX_LEN 2048
 
     enum LogLevel {
-        ALOG_LVL_DEBUG,
-        ALOG_LVL_INFO,
-        ALOG_LVL_NOTICE,
-        ALOG_LVL_WARN,
-        ALOG_LVL_ERROR,
-        ALOG_LVL_FATAL,
+        ALOG_LVL_DEBUG  = 1,
+        ALOG_LVL_INFO   = 2,
+        ALOG_LVL_NOTICE = 3,
+        ALOG_LVL_WARN   = 4,
+        ALOG_LVL_ERROR  = 5,
+        ALOG_LVL_FATAL  = 6,
         ALOG_LVL_MAX,
     };
 
@@ -110,7 +110,7 @@ namespace tz { namespace asynclog {
         AsyncLogger &set_level(LevelType level);
         bool should_log(LevelType level);
         void start();
-        void stop();    // not thread safe
+        void stop();    // FIXME: not thread safe
 
         // private
         void _consumer(ILogSink::Ptr sink);
@@ -138,6 +138,10 @@ namespace tz { namespace asynclog {
         // params
         uint32_t flush_interval_ms;
     };
+
+    // for syslog hook
+    AsyncLogger &init_global_logger(size_t queue_size);     // not thread safe
+    AsyncLogger &get_global_logger(void);
 
     // <impl>
 
