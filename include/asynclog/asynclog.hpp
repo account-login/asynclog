@@ -84,123 +84,10 @@ namespace tz { namespace asynclog {
         virtual void format(std::string &buf, LogMsg *msg) = 0;
     };
 
-    static const size_t _msgpool_bins = 8;
-
-    struct _MsgPool {
-        MPMCBoundedQueue<LogMsg *> pool[_msgpool_bins];
-        size_t size;
-
-        struct Stats {
-            turf::Atomic<uint32_t> get_hit;
-            turf::Atomic<uint32_t> get_miss;
-            turf::Atomic<uint32_t> put_hit;
-            turf::Atomic<uint32_t> put_miss;
-
-            Stats()
-                : get_hit(0), get_miss(0), put_hit(0), put_miss(0)
-            {}
-        } stats;
-
-        _MsgPool() : size(0) {}
-
-        void init(size_t size) {
-            assert(this->size == 0);
-            if (size == 0) {
-                return;
-            }
-            for (size_t i = 0; i < _msgpool_bins; ++i) {
-                this->pool[i].init(size);
-            }
-            this->size = size;
-        }
-
-        ~_MsgPool() {
-            if (this->size == 0) {
-                return;
-            }
-            for (size_t i = 0; i < _msgpool_bins; ++i) {
-                LogMsg *msg = NULL;
-                while (this->pool[i].try_pop_front(msg)) {
-                    ::free(msg);
-                }
-            }
-        }
-
-        LogMsg *get(size_t size) {
-            if (this->size == 0) {
-                return (LogMsg *)::malloc(sizeof(LogMsg) + size);
-            }
-
-            uint32_t index = get_index(size);
-            if (index < _msgpool_bins) {
-                LogMsg *msg = NULL;
-                if (this->pool[index].try_pop_front(msg)) {
-                    this->stats.get_hit.fetchAdd(1, turf::Relaxed);
-                    return msg;
-                } else {
-                    size_t extra_size = 1u << (index + 4);
-                    assert(extra_size >= size);
-                    this->stats.get_miss.fetchAdd(1, turf::Relaxed);
-                    return (LogMsg *)::malloc(sizeof(LogMsg) + extra_size);
-                }
-            } else {
-                this->stats.get_miss.fetchAdd(1, turf::Relaxed);
-                return (LogMsg *)::malloc(sizeof(LogMsg) + size);
-            }
-        }
-
-        void put(LogMsg *msg) {
-            if (this->size == 0) {
-                ::free(msg);
-                return;
-            }
-
-            uint32_t index = get_index(msg->msg_size);
-            if (index < _msgpool_bins) {
-                if (this->pool[index].try_push_back(msg)) {
-                    this->stats.put_hit.fetchAdd(1, turf::Relaxed);
-                    return;
-                }
-            }
-
-            this->stats.put_miss.fetchAdd(1, turf::Relaxed);
-            ::free(msg);
-        }
-
-        // TODO: clear pool when idle
-
-        static uint32_t get_index(size_t size) {
-            if (size <= 256) {  // likely
-                if (size <= 128) {
-                    if (size <= 16) {
-                        return 0;
-                    } else if (size <= 32) {
-                        return 1;
-                    } else if (size <= 64) {
-                        return 2;
-                    } else {
-                        return 3;
-                    }
-                } else {        // likely
-                    return 4;
-                }
-            } else if (size <= 512) {
-                return 5;
-            } else if (size <= 1024) {
-                return 6;
-            } else if (size <= 2048) {
-                return 7;
-            } else {
-                return 8;
-            }
-        }
-    };
-
     struct AsyncLogger {
         explicit AsyncLogger(size_t queue_size)
             : psink()
             , q(queue_size)
-            , msgpool()
             , level(ALOG_LVL_DEBUG)
             , stopped(false)
             , flush_interval_ms(100)
@@ -220,7 +107,6 @@ namespace tz { namespace asynclog {
         void recycle(LogMsg *msg);
         LogMsg *create(size_t msg_size);
         AsyncLogger &set_level(LevelType level);
-        AsyncLogger &set_pool_size(size_t size);
         bool should_log(LevelType level);
         void start();
         void stop();    // not thread safe
@@ -234,7 +120,6 @@ namespace tz { namespace asynclog {
         // private
         ILogSink::Ptr psink;
         MPMCBoundedQueue<LogMsg *> q;
-        _MsgPool msgpool;
         turf::Atomic<LevelType> level;
         boost::scoped_ptr<boost::thread> consumer_thread;
         bool stopped;
@@ -295,20 +180,15 @@ namespace tz { namespace asynclog {
 
     inline void AsyncLogger::recycle(LogMsg *msg) {
         assert(msg != NULL);
-        this->msgpool.put(msg);
+        ::free(msg);
     }
 
     inline LogMsg *AsyncLogger::create(size_t msg_size) {
-        return this->msgpool.get(msg_size);
+        return (LogMsg *)::malloc(sizeof(LogMsg) + msg_size);
     }
 
     inline AsyncLogger &AsyncLogger::set_level(LevelType level) {
         this->level.store(level, turf::Relaxed);
-        return *this;
-    }
-
-    inline AsyncLogger &AsyncLogger::set_pool_size(size_t size) {
-        this->msgpool.init(size);
         return *this;
     }
 

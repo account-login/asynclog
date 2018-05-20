@@ -46,7 +46,6 @@ struct Args {
     size_t producer;
     size_t works;
     string sink;
-    size_t pool;
 };
 
 
@@ -54,13 +53,11 @@ Args parse_arge(int argc, char **argv) {
     Args args;
     args.producer = 1;
     args.works = 10 * 1000 * 1000;
-    args.pool = 0;
 
     struct option long_options[] = {
         {"producer",    required_argument, 0, 'p'},
         {"work",        required_argument, 0, 'n'},
         {"sink",        required_argument, 0, 's'},
-        {"pool",        optional_argument, 0, 'm'},
         {0, 0, 0, 0}
     };
 
@@ -86,9 +83,6 @@ Args parse_arge(int argc, char **argv) {
         case 's':
             args.sink = optarg;
             break;
-        case 'm':
-            args.pool = (size_t)atol(optarg);
-            break;
         case '?':
             /* getopt_long already printed an error message. */
             break;
@@ -106,8 +100,8 @@ int main(int argc, char **argv) {
     debugger.start();
     
     Args args = parse_arge(argc, argv);
-    TZ_ASYNC_LOG(debugger, ALOG_LVL_INFO, "[producer:%zu][works:%zu][sink:%s][mempool:%zu]",
-        args.producer, args.works, args.sink.c_str(), args.pool);
+    TZ_ASYNC_LOG(debugger, ALOG_LVL_INFO, "[producer:%zu][works:%zu][sink:%s]",
+        args.producer, args.works, args.sink.c_str());
 
     if (args.sink.empty()) {
         logger.set_sink(ILogSink::Ptr(new NullSink));
@@ -115,9 +109,7 @@ int main(int argc, char **argv) {
         FileSink *file_sink = new FileSink(args.sink);
         file_sink->set_formatter(boost::shared_ptr<IFormatter>(
             new DefaultFormtter("%(yyyy-mm-dd) %(hh:mm:ss).%(usec) %(level) %(process)[%(tid)] %(msg)")));
-        logger
-            .set_sink(ILogSink::Ptr(file_sink))
-            .set_pool_size(args.pool);
+        logger.set_sink(ILogSink::Ptr(file_sink));
     }
     logger.start();
 
@@ -162,13 +154,6 @@ int main(int argc, char **argv) {
     double consumer_qps = 1000000.0 * (total - drop) / consumer_duration;
     TZ_ASYNC_LOG(debugger, ALOG_LVL_INFO, "[total:%zu][drop:%zu][drop_rate:%g][cons_qps:%.2f]",
         total, drop, drop_rate, consumer_qps);
-
-    uint32_t get_hit = logger.msgpool.stats.get_hit.load(turf::Relaxed);
-    uint32_t get_miss = logger.msgpool.stats.get_miss.load(turf::Relaxed);
-    uint32_t put_hit = logger.msgpool.stats.put_hit.load(turf::Relaxed);
-    uint32_t put_miss = logger.msgpool.stats.put_miss.load(turf::Relaxed);
-    TZ_ASYNC_LOG(debugger, ALOG_LVL_INFO, "[get_hit:%u][get_miss:%u][put_hit:%u][put_miss:%u]",
-        get_hit, get_miss, put_hit, put_miss);
 
     return 0;
 }
