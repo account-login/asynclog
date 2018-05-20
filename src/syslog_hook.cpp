@@ -27,14 +27,17 @@ namespace tz { namespace asynclog {
 }}  // ::tz::asynclog
 
 
+// FIXME: not thread safe
 void closelog(void) {
     tz::asynclog::get_global_logger().stop();
 }
 
+// FIXME: not thread safe
 void openlog(const char *ident, int option, int facility) {
     (void)ident;
     (void)option;
     (void)facility;
+    // TODO: config logger from config file
     tz::asynclog::AsyncLogger &logger
         = tz::asynclog::init_global_logger(TZ_ASYNCLOG_HOOK_LOGGER_QUEUE_SIZE);
     logger.start();

@@ -87,10 +87,10 @@ namespace tz { namespace asynclog {
     struct AsyncLogger {
         explicit AsyncLogger(size_t queue_size)
             : psink()
-            , q(queue_size)
+            , q(queue_size)     // TODO: wrap queue size
             , level(ALOG_LVL_DEBUG)
             , stopped(false)
-            , flush_interval_ms(100)
+            , flush_interval_ms(200)
         {}
 
         ~AsyncLogger();
@@ -101,6 +101,12 @@ namespace tz { namespace asynclog {
             this->psink->logger = this;
             return *this;
         }
+        AsyncLogger &set_queue_size(size_t size) {
+            // TODO: wrap queue size
+            this->q.reset(size);
+            return *this;
+        }
+
         void log(LevelType level, const char *fmt, ...);
         void vlog(LevelType level, const char *fmt, va_list ap);
         bool sink(LogMsg *msg);

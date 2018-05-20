@@ -14,15 +14,17 @@ namespace tz { namespace asynclog {
             : buffer_(NULL)
             , buffer_mask_(0)
         {
-            this->init(buffer_size);
+            this->reset(buffer_size);
         }
 
         mpmc_bounded_queue() : buffer_(NULL), buffer_mask_(0) {}
 
-        void init(size_t buffer_size) {
+        void reset(size_t buffer_size) {
             assert((buffer_size >= 2) && ((buffer_size & (buffer_size - 1)) == 0));
-            assert(buffer_ == NULL);
-            assert(buffer_mask_ == 0);
+
+            if (buffer_) {
+                delete[] buffer_;
+            }
 
             buffer_ = new cell_t[buffer_size];
             buffer_mask_ = buffer_size - 1;
@@ -118,8 +120,8 @@ namespace tz { namespace asynclog {
 
         MPMCBoundedQueue() : q() {}
 
-        void init(size_t size) {
-            this->q.init(size);
+        void reset(size_t size) {
+            this->q.reset(size);
         }
 
         bool try_push_back(const T &obj) {

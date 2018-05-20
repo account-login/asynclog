@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.6)
+cmake_minimum_required(VERSION 2.8)
 project(asynclog)
 
 set(CMAKE_CXX_STANDARD 98)
@@ -37,9 +37,10 @@ target_link_libraries(bench_async_log ${LIBS})
 set_target_properties(bench_async_log
     PROPERTIES COMPILE_FLAGS "-DTZ_ASYNCLOG_USE_STB_SPRINTF"
 )
-target_include_directories(bench_async_log
-    PRIVATE tests
-)
+include_directories(tests)
+#target_include_directories(bench_async_log
+#    PRIVATE tests
+#)
 
 add_executable(bench_syslog
     tests/bench_syslog.cpp
@@ -49,3 +50,4 @@ add_executable(bench_syslog
 add_library(asynclog_syslog_hook SHARED
     src/syslog_hook.cpp
 )
+target_link_libraries(asynclog_syslog_hook boost_thread)
