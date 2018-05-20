@@ -6,6 +6,7 @@
 #include <sched.h>      // for sched_yield
 #include <stdio.h>      // for snprintf, stderr
 #include <stdarg.h>
+#include <stdlib.h>
 #include <sys/types.h>  // for pid_t and etc
 #include <sys/time.h>   // for gettimeofday
 #if  __linux__
@@ -14,11 +15,6 @@
 #include <cassert>
 #include <string>
 
-// TODO: get rid of boost
-#include <boost/thread/thread.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/scoped_ptr.hpp>
-#include <boost/bind.hpp>
 #include <turf/Atomic.h>
 
 #ifdef TZ_ASYNCLOG_USE_STB_SPRINTF
@@ -30,6 +26,8 @@
 #   define TZ_ASYNCLOG_SNPRINTF  snprintf
 #endif
 
+#include "helper.hpp"
+#include "concurrency.hpp"
 #include "queue.hpp"
 
 
@@ -68,7 +66,7 @@ namespace tz { namespace asynclog {
     struct AsyncLogger;
 
     struct ILogSink {
-        typedef boost::shared_ptr<ILogSink> Ptr;
+        typedef TZ_ASYNCLOG_SHARED_PTR<ILogSink> Ptr;
 
         AsyncLogger *logger;
 
@@ -119,7 +117,7 @@ namespace tz { namespace asynclog {
         void stop();    // FIXME: not thread safe
 
         // private
-        void _consumer(ILogSink::Ptr sink);
+        static void *_consumer(void *arg);
         void _internal_log(LevelType level, const char *fmt, ...);
 
         static pid_t get_tid();
@@ -128,7 +126,7 @@ namespace tz { namespace asynclog {
         ILogSink::Ptr psink;
         MPMCBoundedQueue<LogMsg *> q;
         turf::Atomic<LevelType> level;
-        boost::scoped_ptr<boost::thread> consumer_thread;
+        TZ_ASYNCLOG_SHARED_PTR<_Thread> consumer_thread;
         bool stopped;
 
         struct Stats {
@@ -143,6 +141,11 @@ namespace tz { namespace asynclog {
 
         // params
         uint32_t flush_interval_ms;
+
+        // no copy
+    private:
+        AsyncLogger &operator=(const AsyncLogger &other);
+        AsyncLogger(const AsyncLogger &other);
     };
 
     // for syslog hook
@@ -210,7 +213,7 @@ namespace tz { namespace asynclog {
     inline void AsyncLogger::start() {
         assert(this->psink.get() != NULL);
         assert(this->consumer_thread.get() == NULL);
-        this->consumer_thread.reset(new boost::thread(boost::bind(&AsyncLogger::_consumer, this, this->psink)));
+        this->consumer_thread.reset(new _Thread(&AsyncLogger::_consumer, this));
     }
 
     inline bool _wait_a_moment(size_t attempts) {
@@ -249,20 +252,22 @@ namespace tz { namespace asynclog {
         return _timeval_to_msec(tv);
     }
 
-    inline void AsyncLogger::_consumer(ILogSink::Ptr sink) {
-        assert(sink.get() != NULL);
+    inline void *AsyncLogger::_consumer(void *arg) {
+        AsyncLogger *logger = (AsyncLogger *)arg;
+        ILogSink *sink = logger->psink.get();
+        assert(sink != NULL);
 
         size_t attempts = 0;
         uint64_t last_flush = _get_time_msec();
         while (true) {
             LogMsg *msg = NULL;
-            if (!this->q.try_pop_front(msg)) {
+            if (!logger->q.try_pop_front(msg)) {
                 // queue empty, wait a moment
                 bool sleeped = _wait_a_moment(++attempts);
                 if (sleeped) {
                     // check for flush
                     uint64_t now = _get_time_msec();
-                    if (now >= last_flush + this->flush_interval_ms) {
+                    if (now >= last_flush + logger->flush_interval_ms) {
                         last_flush = now;
                         sink->flush();
                     }
@@ -277,7 +282,7 @@ namespace tz { namespace asynclog {
                 delete msg;
                 sink->flush();
                 sink->close();
-                return;     // thread exit
+                return NULL;    // thread exit
             case MSGTYPE_FLUSH:
                 delete msg;
                 last_flush = _get_time_msec();
@@ -285,7 +290,7 @@ namespace tz { namespace asynclog {
                 break;
             case MSGTYPE_LOG:
                 // check for flush before msg is deleted
-                if (_timeval_to_msec(msg->time) >= last_flush + this->flush_interval_ms) {
+                if (_timeval_to_msec(msg->time) >= last_flush + logger->flush_interval_ms) {
                     last_flush = _timeval_to_msec(msg->time);
                     sink->sink(msg);    // msg moved to sink
                     sink->flush();

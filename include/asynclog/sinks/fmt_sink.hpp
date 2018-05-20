@@ -1,7 +1,5 @@
 #pragma once
 
-#include <boost/shared_ptr.hpp>
-
 #include "../asynclog.hpp"
 #include "../formatter.hpp"
 
@@ -18,11 +16,11 @@ namespace tz { namespace asynclog {
             this->formatter->format(buf, msg);
         }
 
-        void set_formatter(const boost::shared_ptr<IFormatter> &formatter) {
+        void set_formatter(const TZ_ASYNCLOG_SHARED_PTR<IFormatter> &formatter) {
             this->formatter = formatter;
         }
 
-        boost::shared_ptr<IFormatter> formatter;
+        TZ_ASYNCLOG_SHARED_PTR<IFormatter> formatter;
     };
 
 }}  // ::tz::asynclog

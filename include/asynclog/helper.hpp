@@ -1,9 +1,24 @@
 #pragma once
 
+#include <unistd.h>
+#include <libgen.h>
+
+#if __cplusplus < 201103L
+#   include <tr1/memory>
+#else
+#   include <memory>
+#endif
+
 #include "asynclog.hpp"
 
 
 namespace tz { namespace asynclog {
+
+#if __cplusplus < 201103L
+#   define TZ_ASYNCLOG_SHARED_PTR std::tr1::shared_ptr
+#else
+#   define TZ_ASYNCLOG_SHARED_PTR std::shared_ptr
+#endif
 
     template <class T>
     struct _StaticSingleton {

@@ -50,4 +50,5 @@ add_executable(bench_syslog
 add_library(asynclog_syslog_hook SHARED
     src/syslog_hook.cpp
 )
-target_link_libraries(asynclog_syslog_hook boost_thread)
+find_package (Threads)
+target_link_libraries(asynclog_syslog_hook ${CMAKE_THREAD_LIBS_INIT})
