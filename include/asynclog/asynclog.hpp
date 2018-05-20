@@ -102,6 +102,7 @@ namespace tz { namespace asynclog {
             return *this;
         }
         void log(LevelType level, const char *fmt, ...);
+        void vlog(LevelType level, const char *fmt, va_list ap);
         bool sink(LogMsg *msg);
         void flush();
         void recycle(LogMsg *msg);
@@ -299,13 +300,18 @@ namespace tz { namespace asynclog {
     }
 
     inline void AsyncLogger::log(LevelType level, const char *fmt, ...) {
-        LogMsg *msg = NULL;
-
         va_list ap;
         va_start(ap, fmt);
+        this->vlog(level, fmt, ap);
+        va_end(ap);
+    }
+
+    inline void AsyncLogger::vlog(LevelType level, const char *fmt, va_list ap) {
+        LogMsg *msg = NULL;
+
         char buf[TZ_ASYNCLOG_MAX_LEN];
         int n = TZ_ASYNCLOG_VSNPRINTF(buf, sizeof(buf), fmt, ap);
-        va_end(ap);
+
         if (n > 0 && n < (int)sizeof(buf)) {
             msg = this->create((size_t)n);
             msg->type = MSGTYPE_LOG;
