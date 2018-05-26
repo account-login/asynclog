@@ -342,7 +342,7 @@ namespace tz { namespace asynclog {
             return;
         }
 
-        fprintf(this->internal_logfile, "[AsyncLogger::_internal_log] %s ", _internal_log_level_string(level));
+        fprintf(this->internal_logfile, "[AsyncLogger::_internal_log] %s\t", _internal_log_level_string(level));
         va_list ap;
         va_start(ap, fmt);
         vfprintf(this->internal_logfile, fmt, ap);
@@ -395,7 +395,7 @@ namespace tz { namespace asynclog {
         if (logger.should_log(level)) { \
             logger.log(level, fmt, ##__VA_ARGS__); \
         } \
-    } while (0)
+    } while (false)
 
 
 }}  // ::tz::asynclog

@@ -6,12 +6,30 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string>
+#include <vector>
 
 #include "../asynclog.hpp"
 #include "../sinks/fmt_sink.hpp"
 
 
 namespace tz { namespace asynclog {
+
+    inline bool _mkdir_recursive(std::string path, mode_t mode) {
+        if (*path.rbegin() != '/') {
+            path.push_back('/');
+        }
+        for (size_t i = 1; i < path.size(); ++i) {
+            if (path[i] == '/') {
+                path[i] = '\0';
+                int rc = ::mkdir(path.c_str(), mode);
+                if (rc != 0 && errno != EEXIST) {
+                    return false;
+                }
+                path[i] = '/';
+            }
+        }
+        return true;
+    }
 
     struct FileSink : FormatterSink {
         explicit FileSink(const std::string &path)
@@ -78,13 +96,28 @@ namespace tz { namespace asynclog {
 
         bool reload() {
             if (this->fp == NULL) {
-                // TODO: check file directory
                 this->logger->_internal_log(ALOG_LVL_INFO, "fp is NULL, open log file. [path:%s]", this->path.c_str());
                 this->fp = fopen(this->path.c_str(), "a");
                 if (this->fp == NULL) {
-                    this->logger->_internal_log(ALOG_LVL_FATAL, "open log file failed. [errno:%d][path:%s]",
+                    // open log file failed
+                    this->logger->_internal_log(ALOG_LVL_ERROR, "open log file failed. [errno:%d][path:%s]",
                         errno, this->path.c_str());
-                    return false;
+
+                    // check for missing dir
+                    std::vector<char> buf(this->path.begin(), this->path.end());
+                    if (!_mkdir_recursive(::dirname(buf.data()), 0755)) {
+                        this->logger->_internal_log(ALOG_LVL_FATAL, "mkdir failed");
+                        return false;
+                    }
+                    this->logger->_internal_log(ALOG_LVL_INFO, "created log dir");
+
+                    // open file again
+                    this->fp = fopen(this->path.c_str(), "a");
+                    if (this->fp == NULL) {
+                        this->logger->_internal_log(ALOG_LVL_FATAL, "open log file again failed. [errno:%d][path:%s]",
+                            errno, this->path.c_str());
+                        return false;
+                    }
                 }
 
                 if (0 != ::stat(this->path.c_str(), &this->file_stat)) {
