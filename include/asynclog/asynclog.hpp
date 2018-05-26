@@ -88,6 +88,7 @@ namespace tz { namespace asynclog {
             , q(queue_size)     // TODO: wrap queue size
             , level(ALOG_LVL_DEBUG)
             , stopped(false)
+            , internal_logfile(NULL)
             , flush_interval_ms(200)
         {}
 
@@ -128,6 +129,8 @@ namespace tz { namespace asynclog {
         turf::Atomic<LevelType> level;
         TZ_ASYNCLOG_SHARED_PTR<_Thread> consumer_thread;
         bool stopped;
+
+        FILE *internal_logfile;
 
         struct Stats {
             turf::Atomic<uint64_t> total;
@@ -170,11 +173,17 @@ namespace tz { namespace asynclog {
         if (this->stopped) {
             return;
         }
+
         LogMsg *msg = new LogMsg();     // special msg type do not go through pool
         msg->type = MSGTYPE_STOP;
         while (!this->q.try_push_back(msg)) {}
         this->consumer_thread->join();
         this->stopped = true;
+
+        if (this->internal_logfile && this->internal_logfile != stderr) {
+            fclose(this->internal_logfile);     // ignore err
+            this->internal_logfile = NULL;
+        }
     }
 
     inline AsyncLogger::~AsyncLogger() {
@@ -213,6 +222,14 @@ namespace tz { namespace asynclog {
     inline void AsyncLogger::start() {
         assert(this->psink.get() != NULL);
         assert(this->consumer_thread.get() == NULL);
+        assert(this->internal_logfile == NULL);
+
+        if (::getenv("ALOG_INTERNAL_LOG_STDERR")) {
+            this->internal_logfile = stderr;
+        } else if (const char *filename = ::getenv("ALOG_INTERNAL_LOG_FILE")) {
+            this->internal_logfile = fopen(filename, "at+");    // ignore err
+        }
+
         this->consumer_thread.reset(new _Thread(&AsyncLogger::_consumer, this));
     }
 
@@ -304,14 +321,31 @@ namespace tz { namespace asynclog {
         }   // while true
     }
 
+    inline const char *_internal_log_level_string(LevelType level) {
+        switch (level) {
+#define _INTERNAL_LOG_LEVEL_CASE(lvl) case lvl: return #lvl
+        _INTERNAL_LOG_LEVEL_CASE(ALOG_LVL_DEBUG);
+        _INTERNAL_LOG_LEVEL_CASE(ALOG_LVL_INFO);
+        _INTERNAL_LOG_LEVEL_CASE(ALOG_LVL_NOTICE);
+        _INTERNAL_LOG_LEVEL_CASE(ALOG_LVL_WARN);
+        _INTERNAL_LOG_LEVEL_CASE(ALOG_LVL_ERROR);
+        _INTERNAL_LOG_LEVEL_CASE(ALOG_LVL_FATAL);
+#undef _INTERNAL_LOG_LEVEL_CASE
+        default: return "ALOG_LVL_UNKNOWN";
+        }
+    }
+
     inline void AsyncLogger::_internal_log(LevelType level, const char *fmt, ...) {
-        // TODO: ...
-        fprintf(stderr, "[AsyncLogger::_internal_log] ");
+        if (this->internal_logfile == NULL) {
+            return;
+        }
+
+        fprintf(this->internal_logfile, "[AsyncLogger::_internal_log] %s ", _internal_log_level_string(level));
         va_list ap;
         va_start(ap, fmt);
-        vfprintf(stderr, fmt, ap);
+        vfprintf(this->internal_logfile, fmt, ap);
         va_end(ap);
-        fputc('\n', stderr);
+        fputc('\n', this->internal_logfile);
     }
 
     inline void AsyncLogger::log(LevelType level, const char *fmt, ...) {
