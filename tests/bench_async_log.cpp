@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
         logger.set_sink(ILogSink::Ptr(new NullSink));
     } else {
         FileSink *file_sink = new FileSink(args.sink);
-        file_sink->set_formatter(TZ_ASYNCLOG_SHARED_PTR<IFormatter>(
+        file_sink->set_formatter(IFormatter::Ptr(
             new DefaultFormtter("%(yyyy-mm-dd) %(hh:mm:ss).%(usec) %(level) %(process)[%(tid)] %(msg)")));
         logger.set_sink(ILogSink::Ptr(file_sink));
     }

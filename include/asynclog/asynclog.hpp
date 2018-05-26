@@ -78,6 +78,8 @@ namespace tz { namespace asynclog {
     };
 
     struct IFormatter {
+        typedef TZ_ASYNCLOG_SHARED_PTR<IFormatter> Ptr;
+
         virtual ~IFormatter() {}
         virtual void format(std::string &buf, LogMsg *msg) = 0;
     };
@@ -361,29 +363,25 @@ namespace tz { namespace asynclog {
         char buf[TZ_ASYNCLOG_MAX_LEN];
         int n = TZ_ASYNCLOG_VSNPRINTF(buf, sizeof(buf), fmt, ap);
 
+        const char *msgdata = NULL;
+        size_t msgsize = 0;
         if (n > 0 && n < (int)sizeof(buf)) {
-            msg = this->create((size_t)n);
-            msg->type = MSGTYPE_LOG;
-            msg->level = level;
-            ::gettimeofday(&msg->time, NULL);
-            msg->tid = this->get_tid();
-
-            ::memcpy(msg->msg_data, buf, (size_t)n);
-            msg->msg_size = (size_t)n;
+            msgdata = buf;
+            msgsize = (size_t)n;
         } else {
-            // TODO: stats
-            // TODO: clean up this
-            const char *errmsg = "[AsyncLogger] bad vsnprintf call: ";
-
-            msg = this->create(strlen(errmsg));
-            msg->type = MSGTYPE_LOG;
-            msg->level = level;
-            ::gettimeofday(&msg->time, NULL);
-            msg->tid = this->get_tid();
-
-            ::memcpy(msg->msg_data, errmsg, strlen(errmsg));
-            msg->msg_size = strlen(errmsg);
+            this->stats.err.fetchAdd(1, turf::Relaxed);
+            const char *errmsg = "[AsyncLogger] bad vsnprintf call";
+            msgdata = errmsg;
+            msgsize = strlen(errmsg);
         }
+
+        msg = this->create(msgsize);
+        msg->type = MSGTYPE_LOG;
+        msg->level = level;
+        ::gettimeofday(&msg->time, NULL);
+        msg->tid = this->get_tid();
+        ::memcpy(msg->msg_data, msgdata, msgsize);
+        msg->msg_size = msgsize;
 
         if (!this->sink(msg)) {
             this->recycle(msg);

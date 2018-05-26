@@ -42,7 +42,7 @@ namespace tz { namespace asynclog {
 
                 size_t n = fwrite(buf.data(), 1, buf.size(), this->fp);
                 if (n != buf.size()) {
-                    this->logger->_internal_log(ALOG_LVL_ERROR, "fwrite() error");
+                    this->logger->_internal_log(ALOG_LVL_FATAL, "fwrite() error [errno:%d]", errno);
                     ok = false;
                     goto L_RETURN;
                 }
@@ -69,7 +69,8 @@ namespace tz { namespace asynclog {
         virtual void close() {
             if (this->fp != NULL) {
                 if (fclose(this->fp) != 0) {
-                    this->logger->_internal_log(ALOG_LVL_ERROR, "close() failed. [path:%s]", this->path.c_str());
+                    this->logger->_internal_log(ALOG_LVL_ERROR, "close() failed. [errno:%d][path:%s]",
+                        errno, this->path.c_str());
                 }
                 this->fp = NULL;
             }
@@ -81,12 +82,14 @@ namespace tz { namespace asynclog {
                 this->logger->_internal_log(ALOG_LVL_INFO, "fp is NULL, open log file. [path:%s]", this->path.c_str());
                 this->fp = fopen(this->path.c_str(), "a");
                 if (this->fp == NULL) {
-                    this->logger->_internal_log(ALOG_LVL_FATAL, "open log file failed. [path:%s]", this->path.c_str());
+                    this->logger->_internal_log(ALOG_LVL_FATAL, "open log file failed. [errno:%d][path:%s]",
+                        errno, this->path.c_str());
                     return false;
                 }
 
                 if (0 != ::stat(this->path.c_str(), &this->file_stat)) {
-                    this->logger->_internal_log(ALOG_LVL_ERROR, "stat() failed. [path:%s]", this->path.c_str());
+                    this->logger->_internal_log(ALOG_LVL_ERROR, "stat() failed. [errno:%d][path:%s]",
+                        errno, this->path.c_str());
                     return false;
                 }
             } else {
@@ -94,7 +97,8 @@ namespace tz { namespace asynclog {
                 struct stat cur_stat;
                 if (0 != ::stat(this->path.c_str(), &cur_stat)) {
                     if (errno != ENOENT) {
-                        this->logger->_internal_log(ALOG_LVL_ERROR, "stat() failed. [path:%s]", this->path.c_str());
+                        this->logger->_internal_log(ALOG_LVL_ERROR, "stat() failed. [errno:%d][path:%s]",
+                            errno, this->path.c_str());
                         return false;
                     }
                 } else {

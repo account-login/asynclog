@@ -20,7 +20,8 @@ namespace tz { namespace asynclog {
 
             size_t n = fwrite(buf.data(), 1, buf.size(), this->fp);
             if (n != buf.size()) {
-                // TODO: ...
+                this->logger->_internal_log(ALOG_LVL_FATAL,
+                    "fwrite() error [size:%zu][writen:%zu][errno:%d]", buf.size(), n, errno);
             }
 
             this->logger->recycle(msg);
@@ -30,7 +31,7 @@ namespace tz { namespace asynclog {
         virtual void flush() {
             int rv = fflush(this->fp);
             if (rv != 0) {
-                // TODO: ...
+                this->logger->_internal_log(ALOG_LVL_FATAL, "fflush() error [errno:%d]", errno);
             }
         }
 
