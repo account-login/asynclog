@@ -91,3 +91,11 @@ void syslog(int priority, const char *format, ...) {
     vsyslog(priority, format, ap);
     va_end(ap);
 }
+
+extern "C" void __syslog_chk(int priority, int flag, const char *format, ...) {
+    (void)flag;
+    va_list ap;
+    va_start(ap, format);
+    vsyslog(priority, format, ap);
+    va_end(ap);
+}
