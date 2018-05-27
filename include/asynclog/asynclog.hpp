@@ -230,6 +230,8 @@ namespace tz { namespace asynclog {
             this->internal_logfile = stderr;
         } else if (const char *filename = ::getenv("ALOG_INTERNAL_LOG_FILE")) {
             this->internal_logfile = fopen(filename, "at+");    // ignore err
+            // set line buffer
+            setvbuf(this->internal_logfile, NULL, _IOLBF, BUFSIZ);
         }
 
         this->consumer_thread.reset(new _Thread(&AsyncLogger::_consumer, this));
@@ -342,7 +344,14 @@ namespace tz { namespace asynclog {
             return;
         }
 
-        fprintf(this->internal_logfile, "[AsyncLogger::_internal_log] %s\t", _internal_log_level_string(level));
+        time_t now = ::time(NULL);
+        struct tm stm;
+        localtime_r(&now, &stm);
+        char timebuf[4 + 1 + 2 + 1 + 2 + 3 * 3 + 1] = {};
+        strftime(timebuf, sizeof(timebuf), "%Y-%m-%d %H:%M:%S", &stm);
+
+        fprintf(this->internal_logfile, "%s [AsyncLogger::_internal_log] %s\t",
+            timebuf, _internal_log_level_string(level));
         va_list ap;
         va_start(ap, fmt);
         vfprintf(this->internal_logfile, fmt, ap);

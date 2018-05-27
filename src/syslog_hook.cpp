@@ -54,6 +54,8 @@ void openlog(const char *ident, int option, int facility) {
 
     if (!ok) {
         logger._internal_log(tz::asynclog::ALOG_LVL_ERROR, "can load config file: %s", errmsg.c_str());
+    } else {
+        logger._internal_log(tz::asynclog::ALOG_LVL_INFO, "loaded config file: %s", configfile);
     }
 }
 
