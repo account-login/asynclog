@@ -5,6 +5,7 @@
 #include "asynclog/asynclog.hpp"
 #include "asynclog/sinks/file_sink.hpp"
 #include "asynclog/helper.hpp"
+#include "asynclog/config.hpp"
 
 
 #define TZ_ASYNCLOG_HOOK_LOGGER_QUEUE_SIZE (1024 * 1024)
@@ -37,10 +38,23 @@ void openlog(const char *ident, int option, int facility) {
     (void)ident;
     (void)option;
     (void)facility;
-    // TODO: config logger from config file
+
+    const char *configfile = ::getenv("ALOG_CONFIG_FILE");
+    if (!configfile) {
+        configfile = "asynclog.json";
+    }
+
     tz::asynclog::AsyncLogger &logger
         = tz::asynclog::init_global_logger(TZ_ASYNCLOG_HOOK_LOGGER_QUEUE_SIZE);
+
+    std::string errmsg;
+    bool ok = tz::asynclog::config_logger_from_file(logger, configfile, errmsg);
+
     logger.start();
+
+    if (!ok) {
+        logger._internal_log(tz::asynclog::ALOG_LVL_ERROR, "can load config file: %s", errmsg.c_str());
+    }
 }
 
 int setlogmask(int mask) {
@@ -63,13 +77,17 @@ static tz::asynclog::LevelType translate_priority(int priority) {
     }
 }
 
+void vsyslog(int priority, const char *format, va_list ap) {
+    tz::asynclog::AsyncLogger &logger = tz::asynclog::get_global_logger();
+    tz::asynclog::LevelType level = translate_priority(priority);
+    if (logger.should_log(level)) {
+        logger.vlog(level, format, ap);
+    }
+}
+
 void syslog(int priority, const char *format, ...) {
     va_list ap;
     va_start(ap, format);
-    tz::asynclog::get_global_logger().vlog(translate_priority(priority), format, ap);
+    vsyslog(priority, format, ap);
     va_end(ap);
-}
-
-void vsyslog(int priority, const char *format, va_list ap) {
-    tz::asynclog::get_global_logger().vlog(translate_priority(priority), format, ap);
 }

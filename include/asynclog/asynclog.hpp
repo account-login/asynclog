@@ -107,6 +107,7 @@ namespace tz { namespace asynclog {
             this->q.reset(size);
             return *this;
         }
+        AsyncLogger &set_level(LevelType level);
 
         void log(LevelType level, const char *fmt, ...);
         void vlog(LevelType level, const char *fmt, va_list ap);
@@ -114,7 +115,6 @@ namespace tz { namespace asynclog {
         void flush();
         void recycle(LogMsg *msg);
         LogMsg *create(size_t msg_size);
-        AsyncLogger &set_level(LevelType level);
         bool should_log(LevelType level);
         void start();
         void stop();    // FIXME: not thread safe
