@@ -48,7 +48,11 @@ add_executable(bench_syslog
 
 # syslog hook
 add_library(asynclog_syslog_hook SHARED
-    src/syslog_hook.cpp
+    src/syslog_hook.cpp tests/stb_sprintf.c
 )
+set_target_properties(asynclog_syslog_hook
+    PROPERTIES COMPILE_FLAGS "-DTZ_ASYNCLOG_USE_STB_SPRINTF"
+)
+
 find_package (Threads)
 target_link_libraries(asynclog_syslog_hook ${CMAKE_THREAD_LIBS_INIT})
