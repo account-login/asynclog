@@ -10,10 +10,14 @@
 #include "sinks/file_sink.hpp"
 
 
+// TODO: auto reload
+
+
 namespace tz { namespace asynclog {
 
     struct AsyncLoggerConfig {
         std::string path;
+        std::string path_pattern;
         std::string pattern;
         std::string level;
         size_t queue_size;
@@ -185,6 +189,8 @@ namespace tz { namespace asynclog {
             _expect_string(p, obj.path);
         } else if (key == "pattern") {
             _expect_string(p, obj.pattern);
+        } else if (key == "path_pattern") {
+            _expect_string(p, obj.path_pattern);
         } else if (key == "level") {
             _expect_string(p, obj.level);
         } else if (key == "queue_size") {
@@ -194,7 +200,18 @@ namespace tz { namespace asynclog {
         }
     }
 
-    bool load_config_string(AsyncLoggerConfig &config, const std::string &input, std::string &errmsg)
+    inline void _str_replace(std::string& str, const std::string& from, const std::string& to) {
+        if(from.empty()) {
+            return;
+        }
+        size_t start_pos = 0;
+        while ((start_pos = str.find(from, start_pos)) != std::string::npos) {
+            str.replace(start_pos, from.length(), to);
+            start_pos += to.length();
+        }
+    }
+
+    inline bool load_config_string(AsyncLoggerConfig &config, const std::string &input, std::string &errmsg)
     {
         _Parser p;
         _init_parser(p, input);
@@ -204,10 +221,17 @@ namespace tz { namespace asynclog {
             errmsg = exc.what;
             return false;
         }
+
+        // using path_pattern
+        if (!config.path_pattern.empty()) {
+            config.path = config.path_pattern;
+            _str_replace(config.path, "$(process)", _get_process_name());
+        }
+
         return true;
     }
 
-    bool load_config_file(AsyncLoggerConfig &config, const std::string &filename, std::string &errmsg)
+    inline bool load_config_file(AsyncLoggerConfig &config, const std::string &filename, std::string &errmsg)
     {
         std::ifstream ifs(filename.c_str());
         if (!ifs) {
@@ -238,7 +262,7 @@ namespace tz { namespace asynclog {
         }
     }
 
-    void config_logger(AsyncLogger &logger, AsyncLoggerConfig &config) {
+    inline void config_logger(AsyncLogger &logger, AsyncLoggerConfig &config) {
         FileSink *filesink = new FileSink(config.path);
         ILogSink::Ptr sink(filesink);
         if (!config.pattern.empty()) {
@@ -253,7 +277,7 @@ namespace tz { namespace asynclog {
         }
     }
 
-    bool config_logger_from_file(AsyncLogger &logger, const std::string &filename, std::string &errmsg)
+    inline bool config_logger_from_file(AsyncLogger &logger, const std::string &filename, std::string &errmsg)
     {
         AsyncLoggerConfig config;
         if (!load_config_file(config, filename, errmsg)) {
@@ -263,7 +287,7 @@ namespace tz { namespace asynclog {
         return true;
     }
 
-    bool config_logger_from_string(AsyncLogger &logger, const std::string &content, std::string &errmsg)
+    inline bool config_logger_from_string(AsyncLogger &logger, const std::string &content, std::string &errmsg)
     {
         AsyncLoggerConfig config;
         if (!load_config_string(config, content, errmsg)) {
