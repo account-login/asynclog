@@ -1,4 +1,6 @@
 #include <syslog.h>
+#include <string>
+#include <vector>
 #include <memory>
 
 
@@ -10,6 +12,8 @@
 
 #define TZ_ASYNCLOG_HOOK_LOGGER_QUEUE_SIZE (1024 * 1024)
 
+
+using namespace std;
 
 namespace tz { namespace asynclog {
 
@@ -39,23 +43,37 @@ void openlog(const char *ident, int option, int facility) {
     (void)option;
     (void)facility;
 
-    const char *configfile = ::getenv("ALOG_CONFIG_FILE");
-    if (!configfile) {
-        configfile = "asynclog.json";
+    vector<string> config_file_list;
+    if (const char *configfile = ::getenv("ALOG_CONFIG_FILE")) {
+        config_file_list.push_back(configfile);
     }
+    config_file_list.push_back("../conf/asynclog.json");
+    config_file_list.push_back("asynclog.json");
 
     tz::asynclog::AsyncLogger &logger
         = tz::asynclog::init_global_logger(TZ_ASYNCLOG_HOOK_LOGGER_QUEUE_SIZE);
 
-    std::string errmsg;
-    bool ok = tz::asynclog::config_logger_from_file(logger, configfile, errmsg);
+    std::string config_file;
+    std::string errmsg = "no config file found";
+    bool ok = false;
+    for (size_t i = 0; i < config_file_list.size(); ++i) {
+        config_file = config_file_list[i];
+        struct stat st;
+        int rv = ::stat(config_file.c_str(), &st);
+        if (rv == 0) {
+            ok = tz::asynclog::config_logger_from_file(logger, config_file, errmsg);
+            break;
+        } else {
+            logger._internal_log(tz::asynclog::ALOG_LVL_WARN,
+                "stat() failed. [errno:%d] skip config file: %s", errno, config_file.c_str());
+        }
+    }
 
     logger.start();
-
     if (!ok) {
         logger._internal_log(tz::asynclog::ALOG_LVL_ERROR, "can load config file: %s", errmsg.c_str());
     } else {
-        logger._internal_log(tz::asynclog::ALOG_LVL_INFO, "loaded config file: %s", configfile);
+        logger._internal_log(tz::asynclog::ALOG_LVL_INFO, "loaded config file: %s", config_file.c_str());
     }
 }
 
