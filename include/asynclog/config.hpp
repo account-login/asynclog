@@ -263,4 +263,14 @@ namespace tz { namespace asynclog {
         return true;
     }
 
+    bool config_logger_from_string(AsyncLogger &logger, const std::string &content, std::string &errmsg)
+    {
+        AsyncLoggerConfig config;
+        if (!load_config_string(config, content, errmsg)) {
+            return false;
+        }
+        config_logger(logger, config);
+        return true;
+    }
+
 }}  // ::tz::asynclog

@@ -1,8 +1,8 @@
+#include <dlfcn.h>      // for dladdr
 #include <syslog.h>
 #include <string>
 #include <vector>
 #include <memory>
-
 
 #include "asynclog/asynclog.hpp"
 #include "asynclog/sinks/file_sink.hpp"
@@ -37,6 +37,25 @@ void closelog(void) {
     tz::asynclog::get_global_logger().stop();
 }
 
+static const char *get_so_path_by_sym(void *sym) {
+    Dl_info dl_info;
+    ::memset(&dl_info, 0x00, sizeof(dl_info));
+    int rv = ::dladdr(sym, &dl_info);
+    if (rv != 0 && dl_info.dli_fname) {
+        return dl_info.dli_fname;
+    }
+    return NULL;
+}
+
+static void reverse(char *buf, size_t size) {
+    for (size_t i = 0; i < size / 2; ++i) {
+        size_t j = size - i - 1;
+        char t = buf[i];
+        buf[i] = buf[j];
+        buf[j] = t;
+    }
+}
+
 // FIXME: not thread safe
 void openlog(const char *ident, int option, int facility) {
     (void)ident;
@@ -56,7 +75,8 @@ void openlog(const char *ident, int option, int facility) {
     std::string config_file;
     std::string errmsg = "no config file found";
     bool ok = false;
-    for (size_t i = 0; i < config_file_list.size(); ++i) {
+    size_t i = 0;
+    for (i = 0; i < config_file_list.size(); ++i) {
         config_file = config_file_list[i];
         struct stat st;
         int rv = ::stat(config_file.c_str(), &st);
@@ -66,6 +86,42 @@ void openlog(const char *ident, int option, int facility) {
         } else {
             logger._internal_log(tz::asynclog::ALOG_LVL_WARN,
                 "stat() failed. [errno:%d] skip config file: %s", errno, config_file.c_str());
+        }
+    }
+
+    if (i == config_file_list.size()) {
+        // no config file found, get embedded config
+        if (const char *sopath = get_so_path_by_sym((void *)openlog)) {
+            if (FILE *sofile = ::fopen(sopath, "rb")) {
+                // read last 1k data
+                const int k_data_size = 1024;
+                char buf[k_data_size + 1] = {};
+
+                int rv = ::fseek(sofile, -k_data_size, SEEK_END);
+                if (rv != 0) {
+                    goto L_DONE;
+                }
+
+                if (::fread(buf, k_data_size, 1, sofile) == 1) {
+                    // extract config json
+                    const char *sig_rev = ">GOLCNYSA<";     // <ASYNCLOG>
+                    reverse(buf, k_data_size);
+
+                    const char *needle = ::strstr(buf, sig_rev);
+                    if (needle) {
+                        assert(needle > buf && needle - buf < k_data_size);
+                        size_t conf_size = needle - buf;
+                        reverse(buf, conf_size);
+                        string conf_str(buf, conf_size);
+
+                        config_file = sopath;
+                        ok = tz::asynclog::config_logger_from_string(logger, conf_str, errmsg);
+                    }
+                }
+
+            L_DONE:
+                ::fclose(sofile);
+            }
         }
     }
 

@@ -31,6 +31,9 @@
 #include "queue.hpp"
 
 
+// TODO: signal handler
+
+
 namespace tz { namespace asynclog {
 
 #define TZ_ASYNCLOG_MAX_LEN 2048

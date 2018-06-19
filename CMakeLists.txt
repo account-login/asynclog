@@ -55,4 +55,17 @@ set_target_properties(asynclog_syslog_hook
 )
 
 find_package (Threads)
-target_link_libraries(asynclog_syslog_hook ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(asynclog_syslog_hook
+    ${CMAKE_THREAD_LIBS_INIT}
+    dl
+)
+
+add_custom_target(asynclog_syslog_hook_preconfig
+    DEPENDS asynclog_syslog_hook
+)
+add_custom_command(TARGET asynclog_syslog_hook_preconfig
+    POST_BUILD
+    COMMAND bash -c "cat libasynclog_syslog_hook.so <(echo '<ASYNCLOG>') ../asynclog.json >libasynclog_syslog_hook_preconfig.so"
+    COMMENT "generate preconfigured hook"
+    VERBATIM
+)
