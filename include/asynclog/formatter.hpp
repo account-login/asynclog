@@ -193,7 +193,7 @@ namespace tz { namespace asynclog {
             char     digits[12];
         };
 
-        Entry entries[_tid_cache_size];
+        Entry entries[_tid_cache_size + 1];
 
         _TidCache() {
             ::memset(this, 0, sizeof(*this));
@@ -205,7 +205,7 @@ namespace tz { namespace asynclog {
 
         const char *get(const LogMsg *msg) {
             assert(sizeof(Entry) == 16);
-            Entry *e = &this->entries[_hash(msg->tid) % _tid_cache_size - 1];
+            Entry *e = &this->entries[_hash(msg->tid) % _tid_cache_size];
             if (e[0].tid != 0) {
                 if (e[0].tid == (uint32_t)msg->tid) {
                     return e[0].digits;
