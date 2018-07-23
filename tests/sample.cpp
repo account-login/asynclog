@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <time.h>
+#include <string>
 
 #include <boost/thread/thread.hpp>
 
@@ -44,6 +45,14 @@ int main() {
     timespec ts = {0, 1000 * 1000}; // 1ms
     int rv = ::nanosleep(&ts, NULL);
     TZ_ASYNC_LOG(logger, ALOG_LVL_DEBUG, "rv: %d", rv);
+
+    // test log truncation
+    std::string rep = "1234";
+    for (size_t i = 0; i < 10; ++i) {
+        rep += rep;
+    }
+    TZ_ASYNC_LOG(logger, ALOG_LVL_INFO, "%s", rep.c_str());
+    TZ_ASYNC_LOG(logger, ALOG_LVL_DEBUG, "[trunc:%lu]", logger.stats.trunc.load(turf::Relaxed));
 
     TZ_ASYNC_LOG(file_logger, ALOG_LVL_DEBUG, "test log to file %d", 123);
 

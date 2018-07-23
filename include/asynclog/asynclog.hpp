@@ -143,9 +143,10 @@ namespace tz { namespace asynclog {
             turf::Atomic<uint64_t> total;
             turf::Atomic<uint64_t> drop;
             turf::Atomic<uint64_t> err;
+            turf::Atomic<uint64_t> trunc;
 
             Stats()
-                : total(0), drop(0), err(0)
+                : total(0), drop(0), err(0), trunc(0)
             {}
         } stats;
 
@@ -377,9 +378,13 @@ namespace tz { namespace asynclog {
 
         const char *msgdata = NULL;
         size_t msgsize = 0;
-        if (n > 0 && n < (int)sizeof(buf)) {
+        if (n > 0) {
             msgdata = buf;
             msgsize = (size_t)n;
+            if (msgsize >= sizeof(buf)) {
+                msgsize = sizeof(buf);
+                this->stats.trunc.fetchAdd(1, turf::Relaxed);
+            }
         } else {
             this->stats.err.fetchAdd(1, turf::Relaxed);
             const char *errmsg = "[AsyncLogger] bad vsnprintf call";
