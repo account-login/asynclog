@@ -36,7 +36,6 @@
 
 namespace tz { namespace asynclog {
 
-    // TODO: config
 #define TZ_ASYNCLOG_MAX_LEN 2048
 
     enum LogLevel {
@@ -96,6 +95,7 @@ namespace tz { namespace asynclog {
             , stopped(false)
             , internal_logfile(NULL)
             , flush_interval_ms(200)
+            , format_buffer_size(TZ_ASYNCLOG_MAX_LEN)
         {}
 
         ~AsyncLogger();
@@ -151,7 +151,9 @@ namespace tz { namespace asynclog {
         } stats;
 
         // params
+        // TODO: add to config
         uint32_t flush_interval_ms;
+        uint32_t format_buffer_size;
 
         // no copy
     private:
@@ -373,7 +375,7 @@ namespace tz { namespace asynclog {
     }
 
     inline void AsyncLogger::vlog(LevelType level, const char *fmt, va_list ap) {
-        char buf[TZ_ASYNCLOG_MAX_LEN];
+        char buf[this->format_buffer_size];     // NOTE: stack overflow
         int n = TZ_ASYNCLOG_VSNPRINTF(buf, sizeof(buf), fmt, ap);
 
         const char *msgdata = NULL;
