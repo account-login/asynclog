@@ -36,6 +36,7 @@
 
 namespace tz { namespace asynclog {
 
+    // TODO: config
 #define TZ_ASYNCLOG_MAX_LEN 2048
 
     enum LogLevel {
@@ -114,6 +115,7 @@ namespace tz { namespace asynclog {
 
         void log(LevelType level, const char *fmt, ...);
         void vlog(LevelType level, const char *fmt, va_list ap);
+        void binlog(LevelType level, const char *data, size_t size);
         bool sink(LogMsg *msg);
         void flush();
         void recycle(LogMsg *msg);
@@ -370,8 +372,6 @@ namespace tz { namespace asynclog {
     }
 
     inline void AsyncLogger::vlog(LevelType level, const char *fmt, va_list ap) {
-        LogMsg *msg = NULL;
-
         char buf[TZ_ASYNCLOG_MAX_LEN];
         int n = TZ_ASYNCLOG_VSNPRINTF(buf, sizeof(buf), fmt, ap);
 
@@ -387,13 +387,17 @@ namespace tz { namespace asynclog {
             msgsize = strlen(errmsg);
         }
 
-        msg = this->create(msgsize);
+        return this->binlog(level, msgdata, msgsize);
+    }
+
+    inline void AsyncLogger::binlog(LevelType level, const char *data, size_t size) {
+        LogMsg *msg = this->create(size);
         msg->type = MSGTYPE_LOG;
         msg->level = level;
         ::gettimeofday(&msg->time, NULL);
         msg->tid = this->get_tid();
-        ::memcpy(msg->msg_data, msgdata, msgsize);
-        msg->msg_size = msgsize;
+        ::memcpy(msg->msg_data, data, size);
+        msg->msg_size = size;
 
         if (!this->sink(msg)) {
             this->recycle(msg);
