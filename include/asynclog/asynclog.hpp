@@ -384,7 +384,7 @@ namespace tz { namespace asynclog {
             msgdata = buf;
             msgsize = (size_t)n;
             if (msgsize >= sizeof(buf)) {
-                msgsize = sizeof(buf);
+                msgsize = sizeof(buf) - 1;
                 this->stats.trunc.fetchAdd(1, turf::Relaxed);
             }
         } else {
