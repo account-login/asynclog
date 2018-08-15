@@ -25,6 +25,15 @@ void thread() {
 
 void thread_file() {
     for (size_t i = 0; i < 1000; ++i) {
+        if (i % 100 == 0) {
+            // test log truncation
+            std::string rep = "1234";
+            for (size_t i = 0; i < 10; ++i) {
+                rep += rep;
+            }
+            TZ_ASYNC_LOG(file_logger, ALOG_LVL_INFO, "%s", rep.c_str());
+            TZ_ASYNC_LOG(file_logger, ALOG_LVL_DEBUG, "[trunc:%lu]", logger.stats.trunc.load(turf::Relaxed));
+        }
         TZ_ASYNC_LOG(file_logger, ALOG_LVL_INFO, "test log to file from thread %d", 123);
         timespec ts = {0, 5* 1000 * 1000};  // 5ms
         ::nanosleep(&ts, NULL);
