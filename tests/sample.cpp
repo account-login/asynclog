@@ -1,3 +1,5 @@
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
 #include <stdio.h>
 #include <time.h>
 #include <string>
@@ -28,7 +30,7 @@ void thread_file() {
         if (i % 100 == 0) {
             // test log truncation
             std::string rep = "1234";
-            for (size_t i = 0; i < 10; ++i) {
+            for (size_t j = 0; j < 10; ++j) {
                 rep += rep;
             }
             TZ_ASYNC_LOG(file_logger, ALOG_LVL_INFO, "%s", rep.c_str());
@@ -51,6 +53,9 @@ int main() {
 
     TZ_ASYNC_LOG(logger, ALOG_LVL_DEBUG, "test log %d", 123);
     TZ_ASYNC_LOG(logger, ALOG_LVL_DEBUG, "test log %s", "hello");
+    TZ_ASYNC_LOG(logger, ALOG_LVL_DEBUG, "sizeof long int %zu", sizeof(long int));
+    TZ_ASYNC_LOG(logger, ALOG_LVL_DEBUG, "sizeof long long int %zu", sizeof(long long int));
+
     timespec ts = {0, 1000 * 1000}; // 1ms
     int rv = ::nanosleep(&ts, NULL);
     TZ_ASYNC_LOG(logger, ALOG_LVL_DEBUG, "rv: %d", rv);

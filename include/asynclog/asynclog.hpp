@@ -113,7 +113,7 @@ namespace tz { namespace asynclog {
         }
         AsyncLogger &set_level(LevelType level);
 
-        void log(LevelType level, const char *fmt, ...);
+        void log(LevelType level, const char *fmt, ...) __attribute__((format(printf, 3, 4)));
         void vlog(LevelType level, const char *fmt, va_list ap);
         void binlog(LevelType level, const char *data, size_t size);
         bool sink(LogMsg *msg);

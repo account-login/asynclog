@@ -25,6 +25,10 @@ set(LIBS
 # sample
 add_executable(sample
     tests/sample.cpp
+    tests/stb_sprintf.c
+)
+set_target_properties(sample
+    PROPERTIES COMPILE_FLAGS "-DTZ_ASYNCLOG_USE_STB_SPRINTF"
 )
 target_link_libraries(sample ${LIBS})
 
