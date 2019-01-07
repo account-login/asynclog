@@ -49,6 +49,9 @@ include_directories(tests)
 add_executable(bench_syslog
     tests/bench_syslog.cpp
 )
+target_link_libraries(bench_syslog
+    rt ${Boost_LIBRARIES}
+)
 
 # syslog hook
 add_library(asynclog_syslog_hook SHARED

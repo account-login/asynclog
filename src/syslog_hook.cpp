@@ -1,9 +1,11 @@
+// system
 #include <dlfcn.h>      // for dladdr
 #include <syslog.h>
+#include <pthread.h>    // for pthread_once
 #include <string>
 #include <vector>
 #include <memory>
-
+// proj
 #include "asynclog/asynclog.hpp"
 #include "asynclog/sinks/file_sink.hpp"
 #include "asynclog/helper.hpp"
@@ -18,6 +20,7 @@ using namespace std;
 namespace tz { namespace asynclog {
 
     static std::auto_ptr<tz::asynclog::AsyncLogger> g_logger;
+    static pthread_once_t g_openlog_once_ctrl = PTHREAD_ONCE_INIT;
 
     AsyncLogger &init_global_logger(size_t queue_size) {
         g_logger.reset(new AsyncLogger(queue_size));
@@ -56,12 +59,7 @@ static void reverse(char *buf, size_t size) {
     }
 }
 
-// FIXME: not thread safe
-void openlog(const char *ident, int option, int facility) {
-    (void)ident;
-    (void)option;
-    (void)facility;
-
+static void openlog_once() {
     vector<string> config_file_list;
     if (const char *configfile = ::getenv("ALOG_CONFIG_FILE")) {
         config_file_list.push_back(configfile);
@@ -133,6 +131,13 @@ void openlog(const char *ident, int option, int facility) {
     }
 }
 
+void openlog(const char *ident, int option, int facility) {
+    (void)ident;
+    (void)option;
+    (void)facility;
+    ::pthread_once(&tz::asynclog::g_openlog_once_ctrl, openlog_once);
+}
+
 int setlogmask(int mask) {
     (void)mask;
     // TODO: ...
@@ -154,6 +159,8 @@ static tz::asynclog::LevelType translate_priority(int priority) {
 }
 
 void vsyslog(int priority, const char *format, va_list ap) {
+    ::pthread_once(&tz::asynclog::g_openlog_once_ctrl, openlog_once);
+
     tz::asynclog::AsyncLogger &logger = tz::asynclog::get_global_logger();
     tz::asynclog::LevelType level = translate_priority(priority);
     if (logger.should_log(level)) {
