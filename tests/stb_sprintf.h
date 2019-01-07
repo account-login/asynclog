@@ -437,6 +437,8 @@ STBSP__PUBLICDEF int STB_SPRINTF_DECORATE(vsprintfcb)(STBSP_SPRINTFCB *callback,
          break;
       // are we 64-bit (unix style)
       case 'l':
+         // tz20181105  long int may be 64-bit
+         fl |= ((sizeof(long int) == 8) ? STBSP__INTMAX : 0);
          ++f;
          if (f[0] == 'l') {
             fl |= STBSP__INTMAX;
@@ -449,6 +451,7 @@ STBSP__PUBLICDEF int STB_SPRINTF_DECORATE(vsprintfcb)(STBSP_SPRINTFCB *callback,
          ++f;
          break;
       // are we 64-bit on size_t or ptrdiff_t? (c99)
+      case 'Z':   // tz20181105     gnu extension
       case 'z':
       case 't':
          fl |= ((sizeof(char *) == 8) ? STBSP__INTMAX : 0);
